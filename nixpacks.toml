@@ -5,4 +5,4 @@ nixPkgs = ["python311", "pip"]
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "cd easyport && gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --preload --log-level info"
+cmd = "cd easyport && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --preload --log-level info"
