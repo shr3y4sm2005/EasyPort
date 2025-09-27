@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import sys
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, redirect, url_for, flash
 from flask_cors import CORS
@@ -16,6 +17,7 @@ from flask_login import (
   UserMixin,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .schemas import RidesRequest, RidesResponse, RideOption
 from .cache import TTLCache
 from .providers import demo_quotes
@@ -83,29 +85,84 @@ except Exception:
 load_dotenv()
 
 
-def create_app():
+def setup_logging(app):
+  """Configure application logging for production."""
+  if not app.debug:
+    # Production logging setup
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+      logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+      )
+    )
+    handler.setLevel(getattr(logging, app.config.get('LOG_LEVEL', 'INFO')))
+    app.logger.addHandler(handler)
+    app.logger.setLevel(getattr(logging, app.config.get('LOG_LEVEL', 'INFO')))
+    
+    # Remove default Flask handler to avoid duplicate logs
+    app.logger.handlers = [handler]
+  else:
+    # Development logging
+    logging.basicConfig(
+      level=logging.DEBUG,
+      format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+
+def create_app(config=None):
+  # Load environment variables
+  load_dotenv()
+  
+  # Import config here to avoid circular imports
+  if config is None:
+    from config import get_config
+    config = get_config()
+  
+  # Create Flask app instance
   base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
   app = Flask(
     __name__,
     static_folder=os.path.join(base_dir, 'static'),
     template_folder=os.path.join(base_dir, 'templates')
   )
-  CORS(app)
+  
+  # Load configuration
+  app.config.from_object(config)
+  
+  # Configure proxy handling for Railway deployment
+  app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+  
+  # Setup logging
+  setup_logging(app)
+  
+  # Initialize CORS
+  CORS(app, resources={
+    r"/api/*": {
+      "origins": "*",
+      "methods": ["GET", "POST", "OPTIONS"],
+      "allow_headers": ["Content-Type", "Authorization"]
+    }
+  })
 
-  port = int(os.getenv('PORT', '5000'))
-  app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-change-me')
-  app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///easyport.db')
-  app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-  # Feature flag: enable real provider calls when credentials and approvals are ready
-  app.config['PROVIDER_API_ENABLED'] = os.getenv('PROVIDER_API_ENABLED', 'false').lower() == 'true'
-
+  # Initialize database
   db = SQLAlchemy(app)
+  
+  # Initialize login manager
   login_manager = LoginManager(app)
   login_manager.login_view = 'login'
+  login_manager.login_message = 'Please log in to access this page.'
+  login_manager.login_message_category = 'info'
+  
+  # Initialize CSRF protection
   csrf = CSRFProtect(app)
 
-  # Rate limiting
-  limiter = Limiter(get_remote_address, app=app, default_limits=["60 per minute"]) 
+  # Initialize rate limiting with better configuration
+  limiter = Limiter(
+    get_remote_address, 
+    app=app, 
+    default_limits=["100 per minute"],
+    storage_uri=app.config.get('RATELIMIT_STORAGE_URL', 'memory://')
+  ) 
 
   # Structured logging
   structlog.configure(
@@ -116,9 +173,15 @@ def create_app():
     ]
   )
   log = structlog.get_logger()
-  # Caches
-  geocode_cache = TTLCache(default_ttl_seconds=3600, max_items=5000)
-  quotes_cache = TTLCache(default_ttl_seconds=60, max_items=5000)
+  # Initialize caches with configuration
+  geocode_cache = TTLCache(
+    default_ttl_seconds=app.config.get('GEOCODE_CACHE_TIMEOUT', 3600), 
+    max_items=5000
+  )
+  quotes_cache = TTLCache(
+    default_ttl_seconds=app.config.get('QUOTES_CACHE_TIMEOUT', 60), 
+    max_items=5000
+  )
 
   # Prometheus metrics
   HTTP_REQUESTS = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
@@ -143,9 +206,16 @@ def create_app():
   def load_user(user_id):
     return User.query.get(int(user_id))
 
-  # Create DB tables if not exist
+  # Initialize database tables
   with app.app_context():
-    db.create_all()
+    try:
+      db.create_all()
+      app.logger.info("Database tables created successfully")
+    except Exception as e:
+      app.logger.error(f"Error creating database tables: {str(e)}")
+      if not app.debug:
+        # In production, we might want to fail fast
+        raise
 
   # -----------------------------
   # Helpers
@@ -174,18 +244,22 @@ def create_app():
     if cached is not None:
       return cached
     url = "https://nominatim.openstreetmap.org/search"
-    headers = {"User-Agent": "easyport/1.0 (contact: example@example.com)"}
+    headers = {"User-Agent": app.config.get('NOMINATIM_USER_AGENT', 'easyport/1.0')}
     params = {"q": address, "format": "json", "limit": 1}
-    async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-      resp = await client.get(url, params=params)
-      resp.raise_for_status()
-      data = resp.json()
-      if not data:
-        return None
-      first = data[0]
-      coords = {"lat": float(first["lat"]), "lng": float(first["lon"]) }
-      geocode_cache.set(address.strip().lower(), coords, ttl_seconds=3600)
-      return coords
+    try:
+      async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
+        resp = await client.get(url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+          return None
+        first = data[0]
+        coords = {"lat": float(first["lat"]), "lng": float(first["lon"]) }
+        geocode_cache.set(address.strip().lower(), coords, ttl_seconds=app.config.get('GEOCODE_CACHE_TIMEOUT', 3600))
+        return coords
+    except Exception as e:
+      app.logger.error(f"Geocoding error for '{address}': {str(e)}")
+      return None
 
   # -----------------------------
   # Provider clients (placeholders; implement once you have access)
@@ -387,14 +461,73 @@ def create_app():
     }
 
   # -----------------------------
+  # Error Handlers
+  # -----------------------------
+  @app.errorhandler(404)
+  def not_found_error(error):
+    return render_template('index.html', error="Page not found"), 404
+
+  @app.errorhandler(500)
+  def internal_error(error):
+    db.session.rollback()
+    app.logger.error(f"Internal server error: {str(error)}")
+    return render_template('index.html', error="Internal server error"), 500
+
+  @app.errorhandler(429)
+  def ratelimit_handler(e):
+    return jsonify({"error": "Rate limit exceeded", "message": str(e.description)}), 429
+
+  @app.errorhandler(413)
+  def request_entity_too_large(error):
+    return jsonify({"error": "Request too large"}), 413
+
+  # -----------------------------
   # API Routes
   # -----------------------------
   @app.route('/api/health', methods=['GET'])
   def health():
-    return jsonify({
-      "status": "OK",
-      "timestamp": datetime.utcnow().isoformat() + "Z",
-    })
+    """Comprehensive health check endpoint for monitoring."""
+    try:
+      # Check database connection
+      db_status = "ok"
+      try:
+        db.session.execute(db.text('SELECT 1'))
+        db.session.commit()
+      except Exception as e:
+        db_status = f"error: {str(e)}"
+      
+      # Check cache functionality
+      cache_status = "ok"
+      try:
+        test_key = "health_check_test"
+        geocode_cache.set(test_key, "test_value", ttl_seconds=1)
+        cached_value = geocode_cache.get(test_key)
+        if cached_value != "test_value":
+          cache_status = "error: cache not working"
+      except Exception as e:
+        cache_status = f"error: {str(e)}"
+      
+      health_data = {
+        "status": "OK" if db_status == "ok" and cache_status == "ok" else "DEGRADED",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "version": "1.0.0",
+        "environment": app.config.get('FLASK_ENV', 'unknown'),
+        "checks": {
+          "database": db_status,
+          "cache": cache_status,
+          "provider_api": "enabled" if app.config.get('PROVIDER_API_ENABLED') else "disabled"
+        }
+      }
+      
+      status_code = 200 if health_data["status"] == "OK" else 503
+      return jsonify(health_data), status_code
+      
+    except Exception as e:
+      return jsonify({
+        "status": "ERROR",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "error": str(e)
+      }), 500
 
   @app.route('/api/geocode', methods=['GET'])
   def api_geocode():
@@ -430,9 +563,9 @@ def create_app():
 
       if not app.config['PROVIDER_API_ENABLED']:
         # Simulate API delay
-        time.sleep(1)
+        time.sleep(0.5)  # Reduced for better UX in production
         response_payload = generate_mock_ride_data(source, destination, passengers)
-        quotes_cache.set(cache_key, response_payload, ttl_seconds=60)
+        quotes_cache.set(cache_key, response_payload, ttl_seconds=app.config.get('QUOTES_CACHE_TIMEOUT', 60))
         resp = RidesResponse.model_validate(response_payload).model_dump()
         
         HTTP_LATENCY.labels('/api/rides').observe(time.time() - start_ts)
@@ -466,7 +599,7 @@ def create_app():
 
       import asyncio
       assembled = asyncio.run(assemble())
-      quotes_cache.set(cache_key, assembled, ttl_seconds=60)
+      quotes_cache.set(cache_key, assembled, ttl_seconds=app.config.get('QUOTES_CACHE_TIMEOUT', 60))
       
       HTTP_LATENCY.labels('/api/rides').observe(time.time() - start_ts)
       HTTP_REQUESTS.labels('POST', '/api/rides', '200').inc()
@@ -554,11 +687,9 @@ def create_app():
     logout_user()
     return redirect(url_for('index'))
 
-  # Expose a run method for convenience
-  def run():
-    app.run(host='0.0.0.0', port=port)
-
-  app.run_app = run
+  # Remove the run method as it's not needed for production deployment
+  # The app will be served by gunicorn in production
+  
   return app
 
 
