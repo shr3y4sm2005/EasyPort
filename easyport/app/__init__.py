@@ -137,6 +137,8 @@ def create_app():
     def check_password(self, password: str) -> bool:
       return check_password_hash(self.password_hash, password)
 
+
+
   @login_manager.user_loader
   def load_user(user_id):
     return User.query.get(int(user_id))
@@ -212,12 +214,14 @@ def create_app():
     def rnd(val):
       return int(round(val))
 
+    # Enhanced ride data with detailed categories and accessibility features
     rides = [
       {
         "id": 1,
         "app": "Uber",
         "appIcon": "🚗",
         "vehicleType": "UberGo",
+        "vehicleCategory": "Economy",
         "price": rnd(base_price * multiplier * random.uniform(0.9, 1.1)),
         "estimatedTime": rnd(random.uniform(15, 35)),
         "distance": rnd(random.uniform(5, 20)),
@@ -225,12 +229,33 @@ def create_app():
         "rating": 4.5,
         "surge": random.random() > 0.7,
         "features": ["AC", "Music", "Professional Driver"],
+        "accessibility": ["Standard Access"],
+        "maxPassengers": 4,
+        "cancellationFee": rnd(20 + random.uniform(-5, 5)),
       },
       {
         "id": 2,
+        "app": "Uber",
+        "appIcon": "♿",
+        "vehicleType": "UberWAV",
+        "vehicleCategory": "Accessible",
+        "price": rnd(base_price * multiplier * 1.1 * random.uniform(0.9, 1.1)),
+        "estimatedTime": rnd(random.uniform(20, 40)),
+        "distance": rnd(random.uniform(5, 20)),
+        "deepLink": "uber://",
+        "rating": 4.7,
+        "surge": random.random() > 0.8,
+        "features": ["AC", "Wheelchair Accessible", "Trained Driver"],
+        "accessibility": ["Wheelchair Accessible", "Mobility Aid Friendly"],
+        "maxPassengers": 3,
+        "cancellationFee": rnd(25 + random.uniform(-5, 5)),
+      },
+      {
+        "id": 3,
         "app": "Ola",
         "appIcon": "🚕",
         "vehicleType": "Mini",
+        "vehicleCategory": "Economy",
         "price": rnd(base_price * multiplier * random.uniform(0.85, 1.15)),
         "estimatedTime": rnd(random.uniform(12, 37)),
         "distance": rnd(random.uniform(4, 22)),
@@ -238,12 +263,33 @@ def create_app():
         "rating": 4.3,
         "surge": random.random() > 0.8,
         "features": ["AC", "Cashless", "24/7 Support"],
+        "accessibility": ["Standard Access"],
+        "maxPassengers": 4,
+        "cancellationFee": rnd(15 + random.uniform(-3, 3)),
       },
       {
-        "id": 3,
+        "id": 4,
+        "app": "Ola",
+        "appIcon": "🚗",
+        "vehicleType": "Prime Sedan",
+        "vehicleCategory": "Premium",
+        "price": rnd(base_price * multiplier * 1.4 * random.uniform(0.9, 1.1)),
+        "estimatedTime": rnd(random.uniform(15, 30)),
+        "distance": rnd(random.uniform(4, 22)),
+        "deepLink": "olacabs://",
+        "rating": 4.6,
+        "surge": random.random() > 0.7,
+        "features": ["AC", "Premium Interior", "Top Rated Driver"],
+        "accessibility": ["Standard Access", "Extra Legroom"],
+        "maxPassengers": 4,
+        "cancellationFee": rnd(30 + random.uniform(-5, 5)),
+      },
+      {
+        "id": 5,
         "app": "Rapido",
         "appIcon": "🛵",
         "vehicleType": "Bike",
+        "vehicleCategory": "Two-Wheeler",
         "price": rnd(base_price * multiplier * 0.6 * random.uniform(0.9, 1.1)),
         "estimatedTime": rnd(random.uniform(8, 23)),
         "distance": rnd(random.uniform(3, 15)),
@@ -251,12 +297,33 @@ def create_app():
         "rating": 4.2,
         "surge": random.random() > 0.9,
         "features": ["Quick", "Affordable", "Traffic Friendly"],
+        "accessibility": ["Standard Access"],
+        "maxPassengers": 1,
+        "cancellationFee": rnd(10 + random.uniform(-2, 2)),
       },
       {
-        "id": 4,
+        "id": 6,
+        "app": "Rapido",
+        "appIcon": "🛺",
+        "vehicleType": "Auto",
+        "vehicleCategory": "Three-Wheeler",
+        "price": rnd(base_price * multiplier * 0.8 * random.uniform(0.9, 1.1)),
+        "estimatedTime": rnd(random.uniform(12, 28)),
+        "distance": rnd(random.uniform(3, 15)),
+        "deepLink": "rapido://",
+        "rating": 4.0,
+        "surge": random.random() > 0.85,
+        "features": ["Open Air", "Local Experience", "Economical"],
+        "accessibility": ["Standard Access", "Easy Entry"],
+        "maxPassengers": 3,
+        "cancellationFee": rnd(8 + random.uniform(-2, 2)),
+      },
+      {
+        "id": 7,
         "app": "Meru",
         "appIcon": "🚙",
         "vehicleType": "Sedan",
+        "vehicleCategory": "Premium",
         "price": rnd(base_price * multiplier * 1.1 * random.uniform(0.9, 1.1)),
         "estimatedTime": rnd(random.uniform(18, 40)),
         "distance": rnd(random.uniform(6, 22)),
@@ -264,12 +331,16 @@ def create_app():
         "rating": 4.4,
         "surge": False,
         "features": ["Premium", "AC", "Professional Service"],
+        "accessibility": ["Standard Access", "Extra Legroom"],
+        "maxPassengers": 4,
+        "cancellationFee": rnd(25 + random.uniform(-5, 5)),
       },
       {
-        "id": 5,
+        "id": 8,
         "app": "InDrive",
         "appIcon": "🚐",
         "vehicleType": "SUV",
+        "vehicleCategory": "Large",
         "price": rnd(base_price * multiplier * 1.3 * random.uniform(0.9, 1.1)),
         "estimatedTime": rnd(random.uniform(20, 45)),
         "distance": rnd(random.uniform(7, 25)),
@@ -277,6 +348,26 @@ def create_app():
         "rating": 4.1,
         "surge": random.random() > 0.6,
         "features": ["Spacious", "Group Travel", "Luggage Space"],
+        "accessibility": ["Standard Access", "Wheelchair Storage"],
+        "maxPassengers": 7,
+        "cancellationFee": rnd(35 + random.uniform(-5, 8)),
+      },
+      {
+        "id": 9,
+        "app": "InDrive",
+        "appIcon": "🚗",
+        "vehicleType": "Comfort",
+        "vehicleCategory": "Premium",
+        "price": rnd(base_price * multiplier * 1.2 * random.uniform(0.9, 1.1)),
+        "estimatedTime": rnd(random.uniform(15, 35)),
+        "distance": rnd(random.uniform(7, 25)),
+        "deepLink": "indrive://",
+        "rating": 4.3,
+        "surge": random.random() > 0.7,
+        "features": ["Comfort", "AC", "Quality Vehicle"],
+        "accessibility": ["Standard Access"],
+        "maxPassengers": 4,
+        "cancellationFee": rnd(20 + random.uniform(-3, 5)),
       },
     ]
 
@@ -343,6 +434,7 @@ def create_app():
         response_payload = generate_mock_ride_data(source, destination, passengers)
         quotes_cache.set(cache_key, response_payload, ttl_seconds=60)
         resp = RidesResponse.model_validate(response_payload).model_dump()
+        
         HTTP_LATENCY.labels('/api/rides').observe(time.time() - start_ts)
         HTTP_REQUESTS.labels('POST', '/api/rides', '200').inc()
         log.info("rides_mock", source=source, destination=destination, passengers=passengers)
@@ -375,6 +467,7 @@ def create_app():
       import asyncio
       assembled = asyncio.run(assemble())
       quotes_cache.set(cache_key, assembled, ttl_seconds=60)
+      
       HTTP_LATENCY.labels('/api/rides').observe(time.time() - start_ts)
       HTTP_REQUESTS.labels('POST', '/api/rides', '200').inc()
       log.info("rides_real", source=source, destination=destination, passengers=passengers, provider_enabled=True)
@@ -383,6 +476,8 @@ def create_app():
       HTTP_REQUESTS.labels('POST', '/api/rides', '500').inc()
       log.error("rides_error", error=str(exc))
       return jsonify({"error": "Failed to fetch ride data", "details": str(exc)}), 500
+
+
 
   @app.route('/metrics', methods=['GET'])
   def metrics():
@@ -402,7 +497,12 @@ def create_app():
     label = request.args.get('label', 'Ride')
     s = request.args.get('s', '')
     t = request.args.get('t', '')
+    
     return render_template('book.html', deep_link=deep_link, web_url=web_url, label=label, s=s, t=t)
+
+
+
+
 
   # -----------------------------
   # Auth Routes

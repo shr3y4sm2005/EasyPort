@@ -9,12 +9,16 @@ EasyPort is a comprehensive ride-hailing comparison platform built with Flask th
 ## ✨ Features
 
 ### 🔍 **Smart Comparison**
+
 - **Multi-Provider Aggregation**: Compare rides from 5+ major providers
 - **Real-time Pricing**: Live fare comparison with surge pricing indicators
 - **Intelligent Sorting**: Sort by price, time, rating, or smart recommendations
-- **Advanced Filtering**: Filter by surge pricing, vehicle type, and recommendations
+- **Enhanced Filtering**: Advanced filters by vehicle category, accessibility features, and more
+- **Vehicle Categories**: Economy, Premium, Large/SUV, Two-Wheeler, Three-Wheeler, Accessible
+- **Accessibility Support**: Wheelchair accessible vehicles, mobility aid friendly options
 
 ### 👤 **User Experience**
+
 - **User Authentication**: Secure registration and login system
 - **Responsive Design**: Modern, mobile-first interface with Tailwind CSS
 - **Address Autocomplete**: Smart location suggestions with geocoding
@@ -95,6 +99,20 @@ EasyPort is a comprehensive ride-hailing comparison platform built with Flask th
 
 That's it! EasyPort is now running with mock data and ready to use.
 
+## 🎯 **New in Phase 1 - Enhanced Features**
+
+### **Advanced Filtering System**
+1. **Filter by Vehicle Category**: Choose Economy, Premium, Large/SUV, Two-Wheeler, Three-Wheeler, or Accessible vehicles
+2. **Accessibility Options**: Find wheelchair accessible vehicles and mobility-friendly rides
+3. **Smart Sorting**: Sort by price, time, rating with enhanced ride details
+4. **Detailed Information**: View max passengers, cancellation fees, and accessibility features
+
+### **Enhanced Ride Cards**
+- **Vehicle Categories**: Clear labeling (Economy, Premium, etc.)
+- **Accessibility Badges**: Visual indicators for accessible features
+- **Detailed Specifications**: Max passengers, cancellation fees
+- **Smart Recommendations**: Better matching based on passenger count
+
 ### 🔧 Configuration (Optional)
 
 Create a `.env` file in the root directory for advanced configuration:
@@ -165,13 +183,17 @@ Content-Type: application/json
       "app": "Uber",
       "appIcon": "🚗",
       "vehicleType": "UberGo",
+      "vehicleCategory": "Economy",
       "price": 150,
       "estimatedTime": 12,
       "distance": 8.5,
       "rating": 4.5,
       "surge": false,
       "deepLink": "uber://",
-      "features": ["AC", "Music", "Professional Driver"]
+      "features": ["AC", "Music", "Professional Driver"],
+      "accessibility": ["Standard Access"],
+      "maxPassengers": 4,
+      "cancellationFee": 20
     }
   ]
 }
@@ -316,17 +338,24 @@ We welcome contributions! Here's how you can help:
 
 ## 📈 Roadmap
 
-### Version 2.0 (Planned)
+### ✅ Phase 1 - Completed (September 2025)
+- **✅ Enhanced Filtering**: Vehicle categories (Economy, Premium, Large, Two-Wheeler, etc.)
+- **✅ Accessibility Support**: Wheelchair accessible vehicles and mobility features
+- **✅ Advanced Ride Details**: Max passengers, cancellation fees, detailed accessibility info
+- **✅ Smart Categorization**: Automatic vehicle categorization and recommendations
+
+### Version 2.0 (Planned - Q4 2025)
 - **Real-time Updates**: WebSocket-based live price updates
 - **Mobile PWA**: Progressive Web App with offline support  
-- **Advanced Analytics**: Usage patterns, cost trends, route optimization
 - **Corporate Features**: Team rides, expense tracking, admin dashboard
+- **Ride History**: Save and track previous rides for users
 
-### Version 2.1 (Future)
+### Version 2.1 (Future - Q1 2026)
 - **AI Recommendations**: Machine learning-powered ride suggestions
 - **Multi-modal Transport**: Include public transit, walking, cycling
 - **Social Features**: Ride sharing with friends, group bookings
 - **International Expansion**: Support for global ride providers
+- **Price Alerts**: Notify users when prices drop for specific routes
 
 ## 📊 Performance
 

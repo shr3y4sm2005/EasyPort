@@ -13,6 +13,7 @@ class RideOption(BaseModel):
   app: str
   appIcon: Optional[str]
   vehicleType: str
+  vehicleCategory: Optional[str] = None
   price: conint(ge=0)
   estimatedTime: conint(ge=0)
   distance: confloat(ge=0)
@@ -20,6 +21,9 @@ class RideOption(BaseModel):
   rating: Optional[confloat(ge=0, le=5)] = None
   surge: Optional[bool] = None
   features: Optional[List[str]] = None
+  accessibility: Optional[List[str]] = None
+  maxPassengers: Optional[int] = None
+  cancellationFee: Optional[int] = None
 
 
 class RidesResponse(BaseModel):
