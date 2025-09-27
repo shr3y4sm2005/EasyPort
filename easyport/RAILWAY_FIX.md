@@ -2,22 +2,38 @@
 
 ## ❌ Problem Identified
 
-Your Railway deployment failed with: **"Error creating build plan with Railpack"**
+Your Railway deployment failed with: **"Railpack could not determine how to build the app"**
 
 This happened because:
-1. **Wrong Builder**: You were using `NIXPACKS` builder instead of `HEROKU`
-2. **Railway Configuration**: The `railway.json` was misconfigured
+1. **Wrong Directory Structure**: Railway was looking at root directory instead of `easyport/` subdirectory
+2. **Missing Build Files**: Railway couldn't find `requirements.txt`, `Procfile`, etc. in the root
+3. **Railpack Confusion**: Railpack couldn't detect Python app structure
 
 ## ✅ Solution Applied
 
-### 1. Fixed Railway Configuration
+### 1. Moved Build Files to Root Directory
 
-**Updated `railway.json`:**
+**Created root-level files:**
+- `Procfile` - Updated to work from root directory
+- `requirements.txt` - Copied from easyport/ folder
+- `runtime.txt` - Python version specification
+- `railway.json` - Railway configuration
+
+### 2. Updated Procfile for Subdirectory
+
+**Root `Procfile`:**
+```
+web: cd easyport && gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --preload --log-level info
+```
+
+### 3. Railway Configuration
+
+**Root `railway.json`:**
 ```json
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "HEROKU"  // Changed from NIXPACKS to HEROKU
+    "builder": "HEROKU"
   },
   "deploy": {
     "numReplicas": 1,
@@ -25,13 +41,6 @@ This happened because:
     "restartPolicyMaxRetries": 10
   }
 }
-```
-
-### 2. Enhanced Procfile
-
-**Updated `Procfile`:**
-```
-web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --preload --log-level info
 ```
 
 ## 🚀 Next Steps
@@ -73,9 +82,10 @@ Railway will automatically redeploy when you push the changes. The build should 
 
 ## 🔍 Why This Fixes the Issue
 
-- **HEROKU Builder**: Railway's Heroku-compatible builder works better with Flask apps
-- **Procfile**: Ensures proper WSGI server configuration
-- **Environment Variables**: Provides necessary configuration for production
+- **Root Directory Detection**: Railway now finds build files in the correct location
+- **Subdirectory Navigation**: Procfile properly navigates to `easyport/` folder
+- **Build File Placement**: `requirements.txt`, `Procfile`, etc. are now in root where Railway expects them
+- **HEROKU Builder**: Uses Railway's Heroku-compatible builder for Flask apps
 
 ## 📊 Expected Build Process
 
