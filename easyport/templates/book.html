@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking • EasyPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div class="w-full max-w-md">
+      <div
+        class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center"
+      >
+        <div class="text-3xl mb-3">🚗</div>
+        <h1 class="text-xl font-bold text-gray-900 mb-1">Open {{ label }}</h1>
+        <p class="text-gray-600">
+          We will try to open the app. If it doesn't open, use the web link.
+        </p>
+
+        <div class="mt-6 space-y-3">
+          {% if deep_link %}
+          <a
+            id="open-app"
+            href="{{ deep_link }}"
+            class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
+            >Open App</a
+          >
+          {% endif %} {% if web_url %}
+          <a
+            id="open-web"
+            href="{{ web_url }}"
+            target="_blank"
+            rel="noopener"
+            class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 rounded-lg transition-colors"
+            >Open Web</a
+          >
+          {% endif %}
+        </div>
+
+        <p class="text-xs text-gray-500 mt-4">
+          If nothing happens, click "Open Web".
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // Auto-attempt to open the app deep link on load
+      const appLink = document.getElementById("open-app");
+      const webLink = document.getElementById("open-web");
+      const src = "{{ s or '' }}";
+      const dst = "{{ t or '' }}";
+      function withParams(baseUrl) {
+        try {
+          const u = new URL(baseUrl);
+          const host = u.hostname.toLowerCase();
+          if (host.includes("uber")) {
+            // Uber m.uber.com deep URL supports query params via sessionStorage fallback
+            // Best effort: add pickup and dropoff text; Uber may not honor without lat/lng
+            u.searchParams.set("pickup", src);
+            u.searchParams.set("dropoff", dst);
+          } else if (host.includes("olacabs") || host.includes("ola")) {
+            u.searchParams.set("pickup", src);
+            u.searchParams.set("drop", dst);
+          } else if (host.includes("rapido")) {
+            u.searchParams.set("pickup", src);
+            u.searchParams.set("destination", dst);
+          } else if (host.includes("meru")) {
+            u.searchParams.set("from", src);
+            u.searchParams.set("to", dst);
+          } else if (host.includes("indrive")) {
+            u.searchParams.set("from", src);
+            u.searchParams.set("to", dst);
+          }
+          return u.toString();
+        } catch (e) {
+          return baseUrl;
+        }
+      }
+      async function geocodeText(q) {
+        if (!q) return null;
+        try {
+          const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          return (data.results || [])[0] || null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      async function rewriteForUber(baseUrl) {
+        const p = await geocodeText(src);
+        const d = await geocodeText(dst);
+        if (!(p && d)) return withParams(baseUrl);
+        const u = new URL("https://m.uber.com/ul/");
+        u.searchParams.set("action", "setPickup");
+        u.searchParams.set("pickup[latitude]", String(p.lat));
+        u.searchParams.set("pickup[longitude]", String(p.lng));
+        u.searchParams.set("pickup[formatted_address]", src);
+        u.searchParams.set("dropoff[latitude]", String(d.lat));
+        u.searchParams.set("dropoff[longitude]", String(d.lng));
+        u.searchParams.set("dropoff[formatted_address]", dst);
+        return u.toString();
+      }
+
+      async function rewriteForOla(baseUrl) {
+        const p = await geocodeText(src);
+        const d = await geocodeText(dst);
+        if (!(p && d)) return withParams(baseUrl);
+        const u = new URL("https://book.olacabs.com/");
+        u.searchParams.set("pickup_lat", String(p.lat));
+        u.searchParams.set("pickup_lng", String(p.lng));
+        u.searchParams.set("pickup_name", src);
+        u.searchParams.set("drop_lat", String(d.lat));
+        u.searchParams.set("drop_lng", String(d.lng));
+        u.searchParams.set("drop_name", dst);
+        return u.toString();
+      }
+
+      async function rewriteForRapido(baseUrl) {
+        const p = await geocodeText(src);
+        const d = await geocodeText(dst);
+        if (!(p && d)) return withParams(baseUrl);
+        const u = new URL("https://rapido.bike/book");
+        u.searchParams.set("pickup", src);
+        u.searchParams.set("pickup_lat", String(p.lat));
+        u.searchParams.set("pickup_lng", String(p.lng));
+        u.searchParams.set("destination", dst);
+        u.searchParams.set("drop_lat", String(d.lat));
+        u.searchParams.set("drop_lng", String(d.lng));
+        return u.toString();
+      }
+
+      async function rewriteForMeru(baseUrl) {
+        const p = await geocodeText(src);
+        const d = await geocodeText(dst);
+        if (!(p && d)) return withParams(baseUrl);
+        const u = new URL("https://merucabs.com/book");
+        u.searchParams.set("from", src);
+        u.searchParams.set("from_lat", String(p.lat));
+        u.searchParams.set("from_lng", String(p.lng));
+        u.searchParams.set("to", dst);
+        u.searchParams.set("to_lat", String(d.lat));
+        u.searchParams.set("to_lng", String(d.lng));
+        return u.toString();
+      }
+
+      async function rewriteForInDrive(baseUrl) {
+        const p = await geocodeText(src);
+        const d = await geocodeText(dst);
+        if (!(p && d)) return withParams(baseUrl);
+        const u = new URL("https://indrive.com/ride/");
+        u.searchParams.set("from", src);
+        u.searchParams.set("from_lat", String(p.lat));
+        u.searchParams.set("from_lng", String(p.lng));
+        u.searchParams.set("to", dst);
+        u.searchParams.set("to_lat", String(d.lat));
+        u.searchParams.set("to_lng", String(d.lng));
+        return u.toString();
+      }
+
+      (async () => {
+        if (webLink && webLink.href) {
+          let url = webLink.href;
+          try {
+            const host = new URL(url).hostname.toLowerCase();
+            if (src && dst) {
+              if (host.includes("uber")) {
+                url = await rewriteForUber(url);
+              } else if (host.includes("olacabs") || host.includes("ola")) {
+                url = await rewriteForOla(url);
+              } else if (host.includes("rapido")) {
+                url = await rewriteForRapido(url);
+              } else if (host.includes("meru")) {
+                url = await rewriteForMeru(url);
+              } else if (host.includes("indrive")) {
+                url = await rewriteForInDrive(url);
+              } else {
+                url = withParams(url);
+              }
+            } else {
+              url = withParams(url);
+            }
+          } catch (e) {
+            url = withParams(url);
+          }
+          webLink.href = url;
+        }
+      })();
+      if (appLink) {
+        // slight delay to ensure page renders
+        setTimeout(() => {
+          window.location.href = appLink.href;
+        }, 150);
+      }
+    </script>
+  </body>
+</html>
